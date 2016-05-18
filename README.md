@@ -6,6 +6,7 @@ Test Knockout 3.2 components and custom binding handlers with ease.
 
 - [KnockoutJS](http://knockoutjs.com)
 - [Mocha](http://mochajs.org)
+- [ES6 Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) (native or via polyfill)
 
 This library supports loading via AMD or as a global object, but mocha always
 needs to in the global scope. Knockout's alias should be set to `ko`.

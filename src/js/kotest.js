@@ -1,12 +1,18 @@
 (function(context, name, definition) {
     'use strict';
     if (typeof define === 'function' && typeof define.amd === 'object') {
-        define(['ko'], definition);
+        define(['knockout'], definition);
         return;
     }
     context[name] = definition(context.ko);
 }(this, 'kotest', function(ko) {
     'use strict';
+
+    function preloadComponent(definition) {
+        return new Promise(function(resolve) {
+            ko.components.get(definition.name, resolve);
+        });
+    };
 
     function registerComponent(definition) {
         ko.components.register(definition.name, definition.config);
@@ -99,37 +105,38 @@
             var container, vm, context = {}, async;
             var config = getTestConfig(testConfig);
             async = config.async;
-            before(function() {
+            before(function(done) {
                 var element = config.element;
-                dependencies.components.forEach(registerComponent);
-                dependencies.bindingHandlers.forEach(registerBindingHandler);
+                ko.utils.arrayForEach(dependencies.components, registerComponent);
+                ko.utils.arrayForEach(dependencies.bindingHandlers, registerBindingHandler);
                 vm = config.vm;
                 container = document.createElement('div');
                 container.appendChild(element);
                 document.getElementById(id || 'test').appendChild(container);
-                ko.applyBindings(vm, container);
                 context.element = element;
                 context.container = container;
+
+                var beforePromise = Promise.resolve();
+                if (async) {
+                    var preloadComponents = ko.utils.arrayMap(dependencies.components, preloadComponent);
+                    if (testConfig.type === 'component') {
+                        preloadComponents.push(preloadComponent(testConfig.params));
+                    }
+                    beforePromise = Promise.all(preloadComponents);
+                }
+                beforePromise
+                    .then(ko.applyBindings.bind(null, vm, container))
+                    .then(done, done);
             });
 
             after(function() {
                 ko.cleanNode(container);
-                dependencies.components.forEach(unregisterComponent);
-                dependencies.bindingHandlers.forEach(unregisterBindingHandler);
+                ko.utils.arrayForEach(dependencies.components, unregisterComponent);
+                ko.utils.arrayForEach(dependencies.bindingHandlers, unregisterBindingHandler);
                 container.parentNode.removeChild(container);
                 delete context.element;
                 delete context.container;
             });
-
-            if (async) {
-                before(function(done) {
-                    setTimeout(function() {
-                        // this needs to be async as knockout components are loaded
-                        // asynchronously
-                        done();
-                    });
-                });
-            }
 
             if (tests) tests(context);
         });
@@ -212,7 +219,7 @@
                     html: html,
                     params: {
                         name: name,
-                        value: value,
+                        value: value
                     }
                 };
                 return {
